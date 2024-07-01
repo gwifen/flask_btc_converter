@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Konwerter BTC na PLN</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            var socket = io();
+            var btcPriceUSD = null;
+            var usdRate = null;
+
+            var btcPrices = [];
+            var btcTimestamps = [];
+            var btcChart = new Chart(document.getElementById('btcChart'), {
+                        type: 'line',
+                        data: {
+                            labels: btcTimestamps,
+                            datasets: [{
+                                label: 'BTC/USD',
+                                data: btcPrices,
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: false
+                                }
+                            }
+                        }
+                    });
+
+            socket.on('btc_update', function(data) {
+                btcPrices = data.prices;
+                btcPriceUSD = btcPrices[btcPrices.length - 1];
+                btcTimestamps = data.timestamps;
+
+                updatePLNValue();
+                updateChart();
+            });
+
+            socket.on('usd_update', function(data) {
+                usdRate = data.rate;
+                updatePLNValue();
+            });
+
+            function updatePLNValue() {
+                var btcAmount = parseFloat(document.getElementById('btc_amount').value.replace(',', '.'));
+                if (!isNaN(btcAmount) && btcPriceUSD !== null && usdRate !== null) {
+                    var plnValue = btcAmount * btcPriceUSD * usdRate;
+                    document.getElementById('pln_value').textContent = `${plnValue.toFixed(2)} PLN`;
+                }
+            }
+
+            function updateChart() {
+                btcChart.data.labels = btcTimestamps;
+                btcChart.data.datasets[0].data = btcPrices;
+                btcChart.update();
+            }
+
+
+            document.getElementById('convert_form').addEventListener('submit', function(event) {
+                event.preventDefault();
+                updatePLNValue();
+            });
+        });
+    </script>
+</head>
+<body>
+    <h1>Konwerter BTC na PLN</h1>
+
+    <form id="convert_form">
+        <label for="btc_amount">Kwota BTC:</label>
+        <input type="text" id="btc_amount" name="btc_amount" required>
+        <br>
+        <input type="submit" value="Konwertuj">
+    </form>
+
+    <p>PLN: <span id="pln_value"></span></p>
+
+    <canvas id="btcChart" width="300" height="100"></canvas>
+
+    {% if error_message %}
+        <p style="color: red;">{{ error_message }}</p>
+    {% endif %}
+</body>
+</html>
